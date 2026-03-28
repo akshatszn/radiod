@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String     @id @default(cuid())
+  email          String     @unique
+  emailVerified  DateTime?
+  name           String?
+  image          String?
+  bio            String?
+  isCreator      Boolean    @default(false)
+  
+  accounts       Account[]
+  sessions       Session[]
+
+  // Relations
+  songs          Song[]     @relation("ArtistSongs")
+  playlists      Playlist[] @relation("UserPlaylists")
+  comments       Comment[]
+  ratings        Rating[]
+  
+  // Social Follows (Self Relation)
+  followers      Follows[]  @relation("following")
+  following      Follows[]  @relation("follower")
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Follows {
+  followerId  String
+  followingId String
+  
+  follower    User @relation("follower", fields: [followerId], references: [id])
+  following   User @relation("following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+}
+
+model Song {
+  id          String   @id @default(cuid())
+  title       String
+  artistId    String
+  coverArtUrl String?
+  audioUrl    String
+  duration    Int?     // in seconds
+  plays       Int      @default(0)
+  
+  // Relations
+  artist      User      @relation("ArtistSongs", fields: [artistId], references: [id])
+  playlists   PlaylistSong[]
+  comments    Comment[]
+  ratings     Rating[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Playlist {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  coverArtUrl String?
+  userId      String
+  isPublic    Boolean   @default(true)
+  
+  // Relations
+  user        User      @relation("UserPlaylists", fields: [userId], references: [id])
+  songs       PlaylistSong[]
+  comments    Comment[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model PlaylistSong {
+  playlistId  String
+  songId      String
+  addedAt     DateTime @default(now())
+
+  playlist    Playlist @relation(fields: [playlistId], references: [id])
+  song        Song     @relation(fields: [songId], references: [id])
+
+  @@id([playlistId, songId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String
+  userId     String
+  songId     String?
+  playlistId String?
+  timestamp  Int?     // time in the song when comment was made (optional)
+
+  // Relations
+  user       User      @relation(fields: [userId], references: [id])
+  song       Song?     @relation(fields: [songId], references: [id])
+  playlist   Playlist? @relation(fields: [playlistId], references: [id])
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  value     Int      // 1-5 scale or 1-10
+  userId    String
+  songId    String
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id])
+  song      Song     @relation(fields: [songId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, songId]) // Users can only rate a song once
+}
